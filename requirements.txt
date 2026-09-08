@@ -1,0 +1,4 @@
+hid>=1.0.6
+Pillow>=9.0.0
+pystray>=0.19.5
+pyinstaller>=6.0
