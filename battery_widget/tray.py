@@ -11,9 +11,22 @@ import pystray
 from . import config
 
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
-FRAME_COLOR = (55, 190, 255, 255)
-FILL_COLOR = (90, 235, 255, 255)
-UNKNOWN_COLOR = (130, 138, 150, 230)
+ACTIVE_COLOR = (42, 190, 255, 255)
+NUMBER_COLOR = (255, 211, 82, 255)
+PANEL_COLOR = (5, 29, 45, 220)
+DIGITS = {
+    "0": ("111", "101", "101", "101", "111"),
+    "1": ("010", "110", "010", "010", "111"),
+    "2": ("111", "001", "111", "100", "111"),
+    "3": ("111", "001", "111", "001", "111"),
+    "4": ("101", "101", "111", "001", "001"),
+    "5": ("111", "100", "111", "001", "111"),
+    "6": ("111", "100", "111", "101", "111"),
+    "7": ("111", "001", "010", "010", "010"),
+    "8": ("111", "101", "111", "101", "111"),
+    "9": ("111", "101", "111", "001", "111"),
+    "-": ("000", "000", "111", "000", "000"),
+}
 
 
 def device_tooltip(name, state):
@@ -21,46 +34,56 @@ def device_tooltip(name, state):
         status = "未连接"
     else:
         status = f"{state.level}%{'（充电中）' if state.charging else ''}"
-    return f"{name}: {status}"
+    return f"DeviceBattery · {name}: {status}\n左键刷新 · 右键菜单"
 
 
-def tray_tooltip(mouse, headset):
-    return "\n".join((
-        "DeviceBattery",
-        device_tooltip("鼠标", mouse),
-        device_tooltip("耳机", headset),
-        "左键刷新 · 右键菜单",
-    ))
+def device_color(state, active):
+    return active if state.known else (130, 138, 150, 230)
 
 
-def _draw_level(draw, bounds, state, marker):
-    """绘制一个电量槽；上方 marker 是设备类别的极简标识。"""
-    left, top, right, bottom = bounds
-    color = FRAME_COLOR if state.known else UNKNOWN_COLOR
-    draw.rounded_rectangle(bounds, radius=1, outline=color, width=1)
-    marker(draw, color, left, top)
-    if not state.known:
-        draw.line((left + 1, (top + bottom) // 2, right - 1, (top + bottom) // 2), fill=color, width=1)
-        return
-    height = max(1, round((bottom - top - 1) * min(100, max(0, state.level)) / 100))
-    draw.rectangle((left + 1, bottom - height, right - 1, bottom - 1), fill=FILL_COLOR)
+def draw_charge_mark(draw, state):
+    if state.charging:
+        draw.polygon(((14, 0), (11, 4), (13, 4), (11, 7), (15, 3), (13, 3)), fill=NUMBER_COLOR)
 
 
-def _mouse_marker(draw, color, left, top):
-    draw.rectangle((left + 2, top - 4, left + 3, top - 3), fill=color)
-    draw.point((left + 2, top - 2), fill=color)
+def draw_percent(draw, state, center, fill):
+    label = str(min(100, max(0, state.level))) if state.known else "--"
+    width = len(label) * 3 + len(label) - 1
+    left = int(center[0] - width / 2)
+    top = int(center[1] - 2.5)
+    for index, digit in enumerate(label):
+        offset = left + index * 4
+        for row, bits in enumerate(DIGITS[digit]):
+            for column, bit in enumerate(bits):
+                if bit == "1":
+                    draw.point((offset + column, top + row), fill=fill)
 
 
-def _headset_marker(draw, color, left, top):
-    draw.arc((left, top - 4, left + 5, top + 1), 180, 360, fill=color, width=1)
-
-
-def dual_battery_icon_image(mouse, headset):
-    """在原生 16px 网格绘制鼠标和耳机的双电量槽。"""
+def mouse_icon_image(state):
+    """在原生 16px 网格上绘制镂空鼠标和清晰百分比。"""
     image = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
-    _draw_level(draw, (1, 5, 6, 15), mouse, _mouse_marker)
-    _draw_level(draw, (9, 5, 14, 15), headset, _headset_marker)
+    color = device_color(state, ACTIVE_COLOR)
+    draw.rounded_rectangle((3, 0, 13, 15), radius=5, outline=color, width=1)
+    draw.line((8, 1, 8, 5), fill=color, width=1)
+    draw.rectangle((7, 2, 8, 4), fill=color)
+    draw.rounded_rectangle((2, 7, 14, 15), radius=2, fill=PANEL_COLOR, outline=color, width=1)
+    draw_percent(draw, state, (8, 11), NUMBER_COLOR)
+    draw_charge_mark(draw, state)
+    return image.resize((64, 64), Image.Resampling.NEAREST)
+
+
+def headset_icon_image(state):
+    """在原生 16px 网格上绘制连续耳机和清晰百分比。"""
+    image = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    color = device_color(state, ACTIVE_COLOR)
+    draw.arc((1, 0, 15, 14), 180, 360, fill=color, width=2)
+    draw.rounded_rectangle((1, 7, 5, 15), radius=2, outline=color, width=2)
+    draw.rounded_rectangle((11, 7, 15, 15), radius=2, outline=color, width=2)
+    draw.rounded_rectangle((2, 8, 14, 15), radius=2, fill=PANEL_COLOR, outline=color, width=1)
+    draw_percent(draw, state, (8, 12), NUMBER_COLOR)
+    draw_charge_mark(draw, state)
     return image.resize((64, 64), Image.Resampling.NEAREST)
 
 
@@ -94,15 +117,17 @@ def set_autostart(enable):
 
 
 class BatteryTray:
-    """显示鼠标和耳机电量的单一任务栏通知图标。"""
+    """显示独立的鼠标和耳机任务栏通知图标。"""
 
     def __init__(self, cfg, manager):
         self.cfg = cfg
         self.manager = manager
         self.refresh_event = threading.Event()
         self.stop_event = threading.Event()
-        self.icon = pystray.Icon("DeviceBattery", dual_battery_icon_image(manager.mouse, manager.headset),
-                                 tray_tooltip(manager.mouse, manager.headset), self._menu())
+        self.mouse_icon = pystray.Icon("DeviceBatteryMouse", mouse_icon_image(manager.mouse),
+                                       device_tooltip("鼠标", manager.mouse), self._menu())
+        self.headset_icon = pystray.Icon("DeviceBatteryHeadset", headset_icon_image(manager.headset),
+                                         device_tooltip("耳机", manager.headset), self._menu())
 
     def _menu(self):
         return pystray.Menu(
@@ -118,17 +143,21 @@ class BatteryTray:
 
     def _toggle_autostart(self, icon, item):
         set_autostart(not autostart_enabled())
-        self.icon.update_menu()
+        self.mouse_icon.update_menu()
+        self.headset_icon.update_menu()
 
     def _quit(self, icon, item):
         self.stop_event.set()
         self.refresh_event.set()
-        self.icon.stop()
+        self.mouse_icon.stop()
+        self.headset_icon.stop()
 
     def _refresh(self):
         self.manager.refresh()
-        self.icon.icon = dual_battery_icon_image(self.manager.mouse, self.manager.headset)
-        self.icon.title = tray_tooltip(self.manager.mouse, self.manager.headset)
+        self.mouse_icon.icon = mouse_icon_image(self.manager.mouse)
+        self.mouse_icon.title = device_tooltip("鼠标", self.manager.mouse)
+        self.headset_icon.icon = headset_icon_image(self.manager.headset)
+        self.headset_icon.title = device_tooltip("耳机", self.manager.headset)
 
     def _refresh_loop(self):
         while not self.stop_event.is_set():
@@ -141,8 +170,9 @@ class BatteryTray:
             self.refresh_event.clear()
 
     def _setup(self, icon):
-        self.icon.visible = True
+        self.mouse_icon.visible = True
+        self.headset_icon.run_detached(setup=lambda headset: setattr(headset, "visible", True))
         threading.Thread(target=self._refresh_loop, daemon=True).start()
 
     def run(self):
-        self.icon.run(setup=self._setup)
+        self.mouse_icon.run(setup=self._setup)

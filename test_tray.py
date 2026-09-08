@@ -1,25 +1,18 @@
-from battery_widget.devices import BatteryState, DeviceManager
-from battery_widget.tray import BatteryTray, dual_battery_icon_image, tray_tooltip
+from battery_widget.devices import BatteryState
+from battery_widget.tray import device_tooltip, headset_icon_image, mouse_icon_image
 
 
-def test_tray_component():
+def test_tray_tooltip():
     mouse = BatteryState()
     headset = BatteryState()
-    mouse.update(100, False)
-    headset.update(25, True)
-    icon = dual_battery_icon_image(mouse, headset)
-    assert icon.size == (64, 64)
-    assert "鼠标: 100%" in tray_tooltip(mouse, headset)
-    assert "耳机: 25%（充电中）" in tray_tooltip(mouse, headset)
-    assert icon.getpixel((12, 24))[:3] == (90, 235, 255)
-    assert icon.getpixel((44, 24))[:3] != (90, 235, 255)
-    assert icon.getpixel((44, 56))[:3] == (90, 235, 255)
-    tray = BatteryTray({}, DeviceManager())
-    assert hasattr(tray, "icon")
-    assert not hasattr(tray, "mouse_icon")
-    assert not hasattr(tray, "headset_icon")
+    mouse.update(82, False)
+    headset.update(64, True)
+    assert "鼠标: 82%" in device_tooltip("鼠标", mouse)
+    assert "耳机: 64%（充电中）" in device_tooltip("耳机", headset)
+    assert mouse_icon_image(mouse).size == (64, 64)
+    assert headset_icon_image(headset).size == (64, 64)
 
 
 if __name__ == "__main__":
-    test_tray_component()
-    print("dual tray component check passed")
+    test_tray_tooltip()
+    print("tray tooltip check passed")
