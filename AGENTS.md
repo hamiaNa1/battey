@@ -1,5 +1,7 @@
 # DeviceBattery 发布规则
 
+- 用户已授权本项目的常规修改、功能增加、测试、构建、部署和启动；完成范围明确的任务时直接执行，无需逐项确认。
+- 仅当操作超出本项目、需要新的账号/密钥、会删除不可恢复的数据或受系统权限限制时，才说明原因并请求方向。
 - 每次完成源码更新后，优先运行语法检查和 `python -B test_tray.py`。
 - 只有检查与 PyInstaller 构建成功时，才替换 `D:\gpt\Tools\DeviceBattery.exe`。
 - 部署时只停止完整路径属于本项目的 `DeviceBattery.exe` 进程，保留 `D:\gpt\Tools\data`。
