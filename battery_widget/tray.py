@@ -32,10 +32,14 @@ OFFLINE_COLORS = {
     "dark": (137, 151, 165, 255),
     "light": (95, 107, 118, 255),
 }
+NUMBER_COLORS = {
+    "dark": (236, 249, 255, 255),
+    "light": (18, 39, 56, 255),
+}
 
 # 保留旧名称，避免现有调用方在主题改造阶段失效。
 ACTIVE_COLOR = THEMES["ice_blue"][1]
-NUMBER_COLOR = ACTIVE_COLOR
+NUMBER_COLOR = NUMBER_COLORS["dark"]
 DIGITS = {
     "0": ("111", "101", "101", "101", "111"),
     "1": ("010", "110", "010", "010", "111"),
@@ -82,6 +86,11 @@ def device_color(state, theme_key="ice_blue", mode=None):
     return theme[1 if mode == "dark" else 2]
 
 
+def number_color(mode=None):
+    """数字使用独立高对比色，不与透明背景或设备轮廓混在一起。"""
+    return NUMBER_COLORS[mode or system_taskbar_mode()]
+
+
 def draw_charge_mark(draw, state, color):
     if state.known and state.charging:
         draw.polygon(((14, 0), (11, 4), (13, 4), (11, 7), (15, 3), (13, 3)), fill=color)
@@ -108,7 +117,7 @@ def mouse_icon_image(state, theme_key="ice_blue", mode=None):
     draw.rounded_rectangle((3, 0, 13, 15), radius=5, outline=color, width=1)
     draw.line((8, 1, 8, 5), fill=color, width=1)
     draw.rectangle((7, 2, 8, 4), fill=color)
-    draw_percent(draw, state, (8, 11), color)
+    draw_percent(draw, state, (8, 11), number_color(mode))
     draw_charge_mark(draw, state, color)
     return image.resize((64, 64), Image.Resampling.NEAREST)
 
@@ -121,7 +130,7 @@ def headset_icon_image(state, theme_key="ice_blue", mode=None):
     draw.arc((1, 0, 15, 14), 180, 360, fill=color, width=2)
     draw.rounded_rectangle((1, 7, 5, 15), radius=2, outline=color, width=1)
     draw.rounded_rectangle((11, 7, 15, 15), radius=2, outline=color, width=1)
-    draw_percent(draw, state, (8, 12), color)
+    draw_percent(draw, state, (8, 12), number_color(mode))
     draw_charge_mark(draw, state, color)
     return image.resize((64, 64), Image.Resampling.NEAREST)
 

@@ -2,6 +2,7 @@ from battery_widget.devices import BatteryState
 from battery_widget.tray import (
     ACTIVE_COLOR,
     CRITICAL_COLORS,
+    NUMBER_COLORS,
     OFFLINE_COLORS,
     THEMES,
     WARNING_COLORS,
@@ -23,6 +24,9 @@ def test_modern_tray_icons():
     assert mouse_icon.size == headset_icon.size == (64, 64)
     assert ACTIVE_COLOR in set(mouse_icon.get_flattened_data())
     assert ACTIVE_COLOR in set(headset_icon.get_flattened_data())
+    assert NUMBER_COLORS["dark"] in set(mouse_icon.get_flattened_data())
+    assert NUMBER_COLORS["dark"] in set(headset_icon.get_flattened_data())
+    assert NUMBER_COLORS["dark"] != ACTIVE_COLOR
     assert "鼠标: 82%" in device_tooltip("鼠标", mouse)
     assert "耳机: 64%（充电中）" in device_tooltip("耳机", headset)
 
@@ -34,6 +38,7 @@ def test_modern_tray_icons():
     assert device_color(mouse, "purple", "dark") == WARNING_COLORS["dark"]
     mouse.update(7, False)
     assert device_color(mouse, "purple", "light") == CRITICAL_COLORS["light"]
+    assert NUMBER_COLORS["light"] in set(mouse_icon_image(mouse, "purple", "light").get_flattened_data())
 
     mouse.update(53, False)
     for key, theme in THEMES.items():
