@@ -175,14 +175,20 @@ class BatteryTray:
         return headset_icon_image(self.manager.headset, self.cfg.get("tray_theme", "ice_blue"))
 
     def _theme_menu(self):
-        return pystray.Menu(*(
-            pystray.MenuItem(
+        def theme_item(key):
+            def select(icon, item):
+                self._set_theme(key)
+
+            def checked(item):
+                return self.cfg.get("tray_theme") == key
+
+            return pystray.MenuItem(
                 THEMES[key][0],
-                lambda icon, item, selected=key: self._set_theme(selected),
-                checked=lambda item, selected=key: self.cfg.get("tray_theme") == selected,
+                select,
+                checked=checked,
             )
-            for key in THEME_ORDER
-        ))
+
+        return pystray.Menu(*(theme_item(key) for key in THEME_ORDER))
 
     def _menu(self):
         return pystray.Menu(

@@ -5,6 +5,7 @@ from battery_widget.tray import (
     OFFLINE_COLORS,
     THEMES,
     WARNING_COLORS,
+    BatteryTray,
     device_color,
     device_tooltip,
     headset_icon_image,
@@ -40,6 +41,12 @@ def test_modern_tray_icons():
         assert device_color(mouse, key, "light") == theme[2]
         assert mouse_icon_image(mouse, key, "dark").getbbox() is not None
         assert headset_icon_image(mouse, key, "light").getbbox() is not None
+
+    tray = BatteryTray.__new__(BatteryTray)
+    tray.cfg = {"tray_theme": "ice_blue"}
+    theme_items = list(tray._theme_menu())
+    assert [item.text for item in theme_items] == [theme[0] for theme in THEMES.values()]
+    assert [item.checked for item in theme_items] == [False, False, False, False, True, False]
 
 
 if __name__ == "__main__":
