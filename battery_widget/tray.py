@@ -11,9 +11,9 @@ import pystray
 from . import config
 
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
-ACTIVE_COLOR = (42, 190, 255, 255)
-NUMBER_COLOR = (255, 211, 82, 255)
-PANEL_COLOR = (5, 29, 45, 220)
+ACTIVE_COLOR = (132, 218, 255, 240)
+NUMBER_COLOR = (126, 255, 186, 255)
+PANEL_COLOR = (8, 24, 40, 145)
 DIGITS = {
     "0": ("111", "101", "101", "101", "111"),
     "1": ("010", "110", "010", "010", "111"),
@@ -42,7 +42,7 @@ def device_color(state, active):
 
 
 def draw_charge_mark(draw, state):
-    if state.charging:
+    if state.known and state.charging:
         draw.polygon(((14, 0), (11, 4), (13, 4), (11, 7), (15, 3), (13, 3)), fill=NUMBER_COLOR)
 
 
@@ -67,8 +67,8 @@ def mouse_icon_image(state):
     draw.rounded_rectangle((3, 0, 13, 15), radius=5, outline=color, width=1)
     draw.line((8, 1, 8, 5), fill=color, width=1)
     draw.rectangle((7, 2, 8, 4), fill=color)
-    draw.rounded_rectangle((2, 7, 14, 15), radius=2, fill=PANEL_COLOR, outline=color, width=1)
-    draw_percent(draw, state, (8, 11), NUMBER_COLOR)
+    draw.rounded_rectangle((3, 7, 13, 14), radius=2, fill=PANEL_COLOR)
+    draw_percent(draw, state, (8, 11), NUMBER_COLOR if state.known else color)
     draw_charge_mark(draw, state)
     return image.resize((64, 64), Image.Resampling.NEAREST)
 
@@ -79,10 +79,10 @@ def headset_icon_image(state):
     draw = ImageDraw.Draw(image)
     color = device_color(state, ACTIVE_COLOR)
     draw.arc((1, 0, 15, 14), 180, 360, fill=color, width=2)
-    draw.rounded_rectangle((1, 7, 5, 15), radius=2, outline=color, width=2)
-    draw.rounded_rectangle((11, 7, 15, 15), radius=2, outline=color, width=2)
-    draw.rounded_rectangle((2, 8, 14, 15), radius=2, fill=PANEL_COLOR, outline=color, width=1)
-    draw_percent(draw, state, (8, 12), NUMBER_COLOR)
+    draw.rounded_rectangle((1, 7, 5, 15), radius=2, outline=color, width=1)
+    draw.rounded_rectangle((11, 7, 15, 15), radius=2, outline=color, width=1)
+    draw.rounded_rectangle((2, 8, 14, 15), radius=2, fill=PANEL_COLOR)
+    draw_percent(draw, state, (8, 12), NUMBER_COLOR if state.known else color)
     draw_charge_mark(draw, state)
     return image.resize((64, 64), Image.Resampling.NEAREST)
 
