@@ -11,9 +11,31 @@ import pystray
 from . import config
 
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
-ACTIVE_COLOR = (132, 218, 255, 240)
-NUMBER_COLOR = (126, 255, 186, 255)
-PANEL_COLOR = (8, 24, 40, 145)
+THEMES = {
+    "warm_orange": ("暖橙", (255, 184, 107, 255), (156, 62, 0, 255)),
+    "purple": ("紫色", (182, 156, 255, 255), (91, 53, 181, 255)),
+    "green": ("绿色", (119, 230, 161, 255), (8, 122, 69, 255)),
+    "gold": ("金色", (255, 215, 106, 255), (138, 87, 0, 255)),
+    "ice_blue": ("冰蓝", (132, 218, 255, 255), (0, 106, 142, 255)),
+    "line_minimal": ("线性极简", (234, 244, 250, 255), (39, 56, 69, 255)),
+}
+THEME_ORDER = tuple(THEMES)
+WARNING_COLORS = {
+    "dark": (255, 211, 90, 255),
+    "light": (138, 91, 0, 255),
+}
+CRITICAL_COLORS = {
+    "dark": (255, 103, 87, 255),
+    "light": (180, 35, 24, 255),
+}
+OFFLINE_COLORS = {
+    "dark": (137, 151, 165, 255),
+    "light": (95, 107, 118, 255),
+}
+
+# 保留旧名称，避免现有调用方在主题改造阶段失效。
+ACTIVE_COLOR = THEMES["ice_blue"][1]
+NUMBER_COLOR = ACTIVE_COLOR
 DIGITS = {
     "0": ("111", "101", "101", "101", "111"),
     "1": ("010", "110", "010", "010", "111"),
@@ -37,13 +59,32 @@ def device_tooltip(name, state):
     return f"DeviceBattery · {name}: {status}\n左键刷新 · 右键菜单"
 
 
-def device_color(state, active):
-    return active if state.known else (130, 138, 150, 230)
+def system_taskbar_mode():
+    """跟随 Windows 系统明暗模式；透明任务栏仍使用同一前景色规则。"""
+    try:
+        path = r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path) as key:
+            value, _ = winreg.QueryValueEx(key, "SystemUsesLightTheme")
+            return "light" if value else "dark"
+    except OSError:
+        return "dark"
 
 
-def draw_charge_mark(draw, state):
+def device_color(state, theme_key="ice_blue", mode=None):
+    mode = mode or system_taskbar_mode()
+    if not state.known:
+        return OFFLINE_COLORS[mode]
+    if state.level < 10:
+        return CRITICAL_COLORS[mode]
+    if state.level < 20:
+        return WARNING_COLORS[mode]
+    theme = THEMES.get(theme_key, THEMES["ice_blue"])
+    return theme[1 if mode == "dark" else 2]
+
+
+def draw_charge_mark(draw, state, color):
     if state.known and state.charging:
-        draw.polygon(((14, 0), (11, 4), (13, 4), (11, 7), (15, 3), (13, 3)), fill=NUMBER_COLOR)
+        draw.polygon(((14, 0), (11, 4), (13, 4), (11, 7), (15, 3), (13, 3)), fill=color)
 
 
 def draw_percent(draw, state, center, fill):
@@ -59,31 +100,29 @@ def draw_percent(draw, state, center, fill):
                     draw.point((offset + column, top + row), fill=fill)
 
 
-def mouse_icon_image(state):
+def mouse_icon_image(state, theme_key="ice_blue", mode=None):
     """在原生 16px 网格上绘制镂空鼠标和清晰百分比。"""
     image = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
-    color = device_color(state, ACTIVE_COLOR)
+    color = device_color(state, theme_key, mode)
     draw.rounded_rectangle((3, 0, 13, 15), radius=5, outline=color, width=1)
     draw.line((8, 1, 8, 5), fill=color, width=1)
     draw.rectangle((7, 2, 8, 4), fill=color)
-    draw.rounded_rectangle((3, 7, 13, 14), radius=2, fill=PANEL_COLOR)
-    draw_percent(draw, state, (8, 11), NUMBER_COLOR if state.known else color)
-    draw_charge_mark(draw, state)
+    draw_percent(draw, state, (8, 11), color)
+    draw_charge_mark(draw, state, color)
     return image.resize((64, 64), Image.Resampling.NEAREST)
 
 
-def headset_icon_image(state):
+def headset_icon_image(state, theme_key="ice_blue", mode=None):
     """在原生 16px 网格上绘制连续耳机和清晰百分比。"""
     image = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
-    color = device_color(state, ACTIVE_COLOR)
+    color = device_color(state, theme_key, mode)
     draw.arc((1, 0, 15, 14), 180, 360, fill=color, width=2)
     draw.rounded_rectangle((1, 7, 5, 15), radius=2, outline=color, width=1)
     draw.rounded_rectangle((11, 7, 15, 15), radius=2, outline=color, width=1)
-    draw.rounded_rectangle((2, 8, 14, 15), radius=2, fill=PANEL_COLOR)
-    draw_percent(draw, state, (8, 12), NUMBER_COLOR if state.known else color)
-    draw_charge_mark(draw, state)
+    draw_percent(draw, state, (8, 12), color)
+    draw_charge_mark(draw, state, color)
     return image.resize((64, 64), Image.Resampling.NEAREST)
 
 
@@ -124,16 +163,33 @@ class BatteryTray:
         self.manager = manager
         self.refresh_event = threading.Event()
         self.stop_event = threading.Event()
-        self.mouse_icon = pystray.Icon("DeviceBatteryMouse", mouse_icon_image(manager.mouse),
+        self.mouse_icon = pystray.Icon("DeviceBatteryMouse", self._mouse_image(),
                                        device_tooltip("鼠标", manager.mouse), self._menu())
-        self.headset_icon = pystray.Icon("DeviceBatteryHeadset", headset_icon_image(manager.headset),
+        self.headset_icon = pystray.Icon("DeviceBatteryHeadset", self._headset_image(),
                                          device_tooltip("耳机", manager.headset), self._menu())
+
+    def _mouse_image(self):
+        return mouse_icon_image(self.manager.mouse, self.cfg.get("tray_theme", "ice_blue"))
+
+    def _headset_image(self):
+        return headset_icon_image(self.manager.headset, self.cfg.get("tray_theme", "ice_blue"))
+
+    def _theme_menu(self):
+        return pystray.Menu(*(
+            pystray.MenuItem(
+                THEMES[key][0],
+                lambda icon, item, selected=key: self._set_theme(selected),
+                checked=lambda item, selected=key: self.cfg.get("tray_theme") == selected,
+            )
+            for key in THEME_ORDER
+        ))
 
     def _menu(self):
         return pystray.Menu(
             pystray.MenuItem("立即刷新", self._refresh_now, default=True),
             pystray.MenuItem("开机自启", self._toggle_autostart,
                              checked=lambda item: autostart_enabled()),
+            pystray.MenuItem("主题", self._theme_menu()),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("退出", self._quit),
         )
@@ -146,6 +202,14 @@ class BatteryTray:
         self.mouse_icon.update_menu()
         self.headset_icon.update_menu()
 
+    def _set_theme(self, theme_key):
+        self.cfg["tray_theme"] = theme_key
+        config.save_config(self.cfg)
+        self.mouse_icon.icon = self._mouse_image()
+        self.headset_icon.icon = self._headset_image()
+        self.mouse_icon.update_menu()
+        self.headset_icon.update_menu()
+
     def _quit(self, icon, item):
         self.stop_event.set()
         self.refresh_event.set()
@@ -154,9 +218,9 @@ class BatteryTray:
 
     def _refresh(self):
         self.manager.refresh()
-        self.mouse_icon.icon = mouse_icon_image(self.manager.mouse)
+        self.mouse_icon.icon = self._mouse_image()
         self.mouse_icon.title = device_tooltip("鼠标", self.manager.mouse)
-        self.headset_icon.icon = headset_icon_image(self.manager.headset)
+        self.headset_icon.icon = self._headset_image()
         self.headset_icon.title = device_tooltip("耳机", self.manager.headset)
 
     def _refresh_loop(self):

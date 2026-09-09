@@ -15,6 +15,7 @@ DEFAULTS = {
     "refresh_fast": 5,           # 有设备离线时的快速轮询间隔（秒）
     "opacity": 0.95,             # 整体不透明度 0.3 ~ 1.0
     "theme": "dark",             # "dark" | "light"
+    "tray_theme": "ice_blue",    # 托盘配色主题
     "show_mouse": True,
     "show_headset": True,
     "percent_on_top": True,      # 百分比放在设备名上方（更现代）
@@ -47,6 +48,9 @@ def load_config():
         cfg["opacity"] = max(0.3, min(1.0, float(cfg.get("opacity", 0.95))))
     except Exception:
         cfg["opacity"] = 0.95
+    if cfg.get("tray_theme") not in {
+            "warm_orange", "purple", "green", "gold", "ice_blue", "line_minimal"}:
+        cfg["tray_theme"] = "ice_blue"
     return cfg
 
 

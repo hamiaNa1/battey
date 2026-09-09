@@ -13,7 +13,8 @@ Windows 2.4G 无线设备电量托盘组件。当前版本为鼠标和耳机分�
 
 - 两个独立的 Windows 托盘图标，分别代表鼠标和耳机
 - 图标内显示电量数字，悬停显示百分比、充电与连接状态
-- 透明背景、冰蓝线框和薄荷绿数字，适配 TranslucentTB
+- 透明背景，内置暖橙、紫色、绿色、金色、冰蓝和线性极简六套托盘主题
+- 低电量使用黄色/红色警示色，并为深色、浅色任务栏提供独立颜色变体
 - 在线时每 30 秒刷新；设备缺失时每 5 秒重试
 - 右键菜单支持立即刷新、开机自启和退出
 - 连续读取失败时使用短期缓存，减少设备休眠造成的闪烁
@@ -39,6 +40,7 @@ python -m PyInstaller --noconfirm --onefile --noconsole --name DeviceBattery --h
 - `baseline-current`：初始双图标方案
 - `experiment/dual-battery-tray`：单一双电量槽图标试验
 - `experiment/modern-dual-icons`：适配透明任务栏的现代双图标方案
+- `experiment/optical-tray-icons`：多尺寸光学图标与主题系统试验（当前先完成主题部分）
 
 ## 设备协议
 
